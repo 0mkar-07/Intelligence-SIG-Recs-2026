@@ -1,0 +1,383 @@
+Task 1 — Collaborative Filtering Revision Sheet
+
+This is the one-page mental model you should remember before moving to Task 2.
+
+1. What are we trying to do?
+We have users and items, with some observed ratings:
+User  →  Movie  →  Rating
+
+Example:
+User 1 → Movie A → 5
+User 1 → Movie B → 3
+User 2 → Movie A → 4
+
+The goal is to predict how a user would rate an item they haven't rated yet.
+This is Collaborative Filtering (CF).
+The key idea:
+Users who behaved similarly in the past may have similar preferences in the future.
+
+2. Our dataset
+We used MovieLens 100K.
+943 users
+1682 movies
+100,000 ratings
+ratings = 1 to 5
+
+Our training set:
+
+69,999 ratings
+943 users
+1638 movies
+
+The training user-item matrix was:
+943 × 1638
+Only 4.53% of possible user-item pairs had ratings.
+
+Therefore:
+
+Sparsity ≈ 95.47%
+Mental picture
+             Movies
+          A  B  C  D  E
+User 1    5  0  3  0  0
+User 2    4  0  5  2  0
+User 3    0  4  0  5  3
+
+0 means no observed rating, not a real zero rating.
+3. Two approaches we implemented
+A. Memory-Based CF
+
+We used Item-Item Collaborative Filtering.
+
+Question being asked:
+
+"Which movies are similar to this movie?"
+
+Suppose:
+
+Movie A → ratings by many users
+Movie B → ratings by many users
+
+If their rating patterns are similar, they are considered similar.
+
+Step 1 — User-item matrix
+User × Movie
+Step 2 — Transpose it
+
+For item similarity:
+
+Movie × User
+
+So a movie becomes a vector:
+
+Movie A = [5, 4, 0, 2, 5, ...]
+Movie B = [4, 5, 0, 1, 4, ...]
+Step 3 — Cosine similarity
+
+We used:
+
+$$ \text{sim}(A,B)=\frac{A\cdot B}{||A||||B||} $$
+
+It measures how similarly two item vectors point.
+
+1 → very similar direction
+0 → no similarity
+4. How Item-Item CF predicts
+
+Suppose user U has rated:
+
+Movie A = 5
+Movie B = 4
+Movie C = 2
+
+We want to predict Movie X.
+
+Find movies similar to X:
+
+sim(X,A) = 0.9
+sim(X,B) = 0.7
+sim(X,C) = 0.2
+
+Then calculate a similarity-weighted rating:
+
+$$ \hat r_{u,i} = \frac{\sum_j sim(i,j)r_{u,j}} {\sum_j |sim(i,j)|} $$
+
+So highly similar movies have more influence.
+
+We only considered the K nearest rated items.
+
+5. Choosing K
+
+We tested:
+
+K = 5
+10
+20
+40
+80
+100
+150
+200
+
+Validation results showed:
+
+K = 10 → lowest RMSE
+So we froze:
+K = 10
+
+Important workflow:
+
+Train → calculate similarity
+
+Validation → choose K
+
+Test → final evaluation
+
+Never use the test set to choose K.
+
+6. Item-Item CF result
+
+Final test:
+
+RMSE = 0.9674
+MAE  = 0.7556
+Coverage = 99.82%
+RMSE
+$$ RMSE=\sqrt{\frac{1}{N}\sum (y-\hat y)^2} $$
+
+It penalizes larger errors more heavily.
+
+MAE
+$$ MAE=\frac{1}{N}\sum |y-\hat y| $$
+
+It tells us the average absolute prediction error.
+
+7. Matrix Factorization
+
+Memory-based CF asks:
+
+"Which items are similar?"
+
+Matrix Factorization instead asks:
+
+"Can I represent users and items using hidden/latent factors?"
+
+We approximate:
+
+$$ R \approx U V^T $$
+
+where:
+
+U = user latent-factor matrix
+V = item latent-factor matrix
+
+For example, with 10 factors:
+
+User 1 → [0.2, -0.4, 0.7, ...]  ← 10 numbers
+Movie A → [0.5, 0.1, -0.2, ...] ← 10 numbers
+
+Prediction comes from their dot product.
+
+8. Our actual MF model
+
+We used:
+
+$$ \hat r_{ui} = \mu+b_u+b_i+U_u\cdot V_i $$
+
+Where:
+
+μ   = global average rating
+bu  = user bias
+bi  = item bias
+Uu  = user latent vector
+Vi  = item latent vector
+Why biases?
+
+Because users and movies have different general tendencies.
+
+Example:
+
+User A → usually rates 4–5
+User B → usually rates 2–3
+
+and:
+
+Movie X → generally highly rated
+Movie Y → generally poorly rated
+
+Bias terms capture those effects.
+
+9. How MF learns
+
+For each training rating:
+
+1. Predict rating
+2. Calculate error
+
+error = actual - predicted
+
+3. Update:
+   user factors
+   item factors
+   user bias
+   item bias
+
+We also use regularization to discourage excessively large parameters.
+
+Our objective conceptually is:
+
+$$ \text{loss} = \sum (r_{ui}-\hat r_{ui})^2 + \lambda(\text{parameter magnitudes}) $$
+10. MF tuning
+
+We tested:
+
+factors: 10, 20, 40
+
+learning rate:
+0.005
+0.01
+
+regularization:
+0.02
+
+Best validation configuration:
+
+Latent factors = 10
+Learning rate  = 0.01
+Regularization = 0.02
+Epochs         = 20
+
+Validation:
+
+RMSE = 0.94196
+MAE  = 0.74069
+
+Final test:
+
+RMSE = 0.9349
+MAE  = 0.7318
+Coverage ≈ 99.83%
+11. Final comparison
+Model	Test RMSE	Test MAE
+Item-Item CF	0.9674	0.7556
+Matrix Factorization	0.9349	0.7318
+
+For this dataset and this experiment, MF produced lower prediction error.
+
+The RMSE reduction was about:
+
+3.35%
+
+and MAE reduction about:
+
+3.16%
+
+These are experimental results, not a universal rule that MF will always outperform Item-CF.
+
+12. Why did we use validation?
+
+This is extremely important for interviews/exams.
+
+                  DATA
+                   │
+          ┌────────┼────────┐
+          ↓        ↓        ↓
+        TRAIN     VAL      TEST
+          │        │         │
+          │        │         │
+       learn     choose     final
+       model     params     result
+
+For us:
+
+Item-CF
+Train → similarity
+Validation → choose K=10
+Test → final RMSE/MAE
+MF
+Train → learn factors
+Validation → choose hyperparameters
+Test → final RMSE/MAE
+
+The test set should remain untouched until the end.
+
+13. Cold start
+
+We encountered a small number of test/validation interactions whose items were absent from training.
+
+Validation excluded = 24
+Test excluded = 26
+
+Why?
+
+Because the model cannot calculate a meaningful learned similarity/factor for an item it never observed during training.
+
+This is called the cold-start problem.
+
+14. Memory-Based vs Model-Based
+Item-Item CF
+Data
+ ↓
+Similarity
+ ↓
+Neighbors
+ ↓
+Prediction
+
+Strength:
+
+Directly interpretable similarity/neighborhood logic.
+
+Limitation:
+
+Depends strongly on observed interaction patterns.
+Cold-start is a problem.
+Matrix Factorization
+Data
+ ↓
+Learn latent representations
+ ↓
+User × Item interaction
+ ↓
+Prediction
+
+Strength:
+
+Learns latent patterns rather than relying only on direct neighbors.
+
+Limitation:
+
+Requires model training and hyperparameter choices.
+15. The whole Task 1 in one diagram
+
+Memorize this:
+
+             MovieLens
+                 │
+                 ▼
+        User-Item Matrix
+                 │
+          ┌──────┴──────┐
+          │             │
+          ▼             ▼
+     Item-Item CF    Matrix Factorization
+          │             │
+          │             ▼
+          │       User/item latent
+          │          factors
+          │             │
+          └──────┬──────┘
+                 ▼
+        Predict ratings
+                 │
+                 ▼
+          RMSE / MAE
+                 │
+                 ▼
+            Compare
+The 5 things you should be able to explain without looking
+What is collaborative filtering?
+How does Item-Item CF calculate similarity and prediction?
+What is Matrix Factorization and why use latent factors?
+Why are train/validation/test separated?
+Why can cold-start happen?
